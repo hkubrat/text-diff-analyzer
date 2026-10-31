@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="tr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metin Değişiklik ve Benzerlik Analizi</title>
+    <!-- Inter Font & Tailwind CSS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            200: '#c7d2fe',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- PDF.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        if (window.pdfjsLib) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
+    <style>
+        ins.diff-ins {
+            background-color: #bbf7d0;
+            color: #14532d;
+            text-decoration: none;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        del.diff-del {
+            background-color: #fecaca;
+            color: #991b1b;
+            text-decoration: line-through;
+            padding: 2px 5px;
+            border-radius: 4px;
+            opacity: 0.85;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 antialiased flex flex-col font-sans">
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-brand-500/25">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">Metin Değişiklik ve Benzerlik Analizi</h1>
+                    <p class="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                        <span class="font-medium text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded border border-brand-100">by kubraht</span>
+                        <span class="hidden sm:inline text-slate-400">• Karşılaştırma & Fark Analiz Aracı</span>
+                    </p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2.5">
+                <button id="btnDemo" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-brand-700 bg-brand-50 hover:bg-brand-100/80 border border-brand-200 transition-colors">
+                    <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    <span>Örnek Metinleri Yükle</span>
+                </button>
+                <button id="btnClear" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 transition-colors">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    <span>Temizle</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8">
+
+        <!-- Input Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- Card 1: Eski / Orijinal Belge -->
+            <div class="bg-white rounded-2xl border border-slate-200/90 shadow-sm flex flex-col overflow-hidden transition-all duration-200 hover:shadow-md">
+                <div class="px-5 py-4 bg-slate-50/70 border-b border-slate-200/70 flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 ring-4 ring-rose-100"></span>
+                        <h2 class="text-sm font-bold text-slate-800">Eski Metin / Orijinal Belge</h2>
+                    </div>
+                    <span id="lblWordsOld" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">0 kelime</span>
+                </div>
+
+                <div class="p-5 flex flex-col gap-4 flex-1">
+                    <!-- Drop Zone -->
+                    <div id="dropOld" class="border-2 border-dashed border-slate-200 hover:border-brand-500 rounded-xl p-4 text-center cursor-pointer bg-slate-50/60 hover:bg-brand-50/40 transition-all group">
+                        <input type="file" id="fileOld" accept=".txt,.pdf" class="hidden">
+                        <div class="flex flex-col items-center gap-1.5 pointer-events-none">
+                            <svg class="w-6 h-6 text-slate-400 group-hover:text-brand-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                            </svg>
+                            <p class="text-xs font-medium text-slate-700">PDF veya TXT dosyasını buraya sürükleyin ya da <span class="text-brand-600 font-semibold underline">seçin</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Textarea -->
+                    <textarea id="txtOld" placeholder="Eski metni buraya yapıştırın veya yukarıdan PDF/TXT dosyası yükleyin..." class="w-full h-64 p-4 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 resize-y font-normal leading-relaxed custom-scrollbar bg-slate-50/30"></textarea>
+                </div>
+            </div>
+
+            <!-- Card 2: Yeni / Revize Belge -->
+            <div class="bg-white rounded-2xl border border-slate-200/90 shadow-sm flex flex-col overflow-hidden transition-all duration-200 hover:shadow-md">
+                <div class="px-5 py-4 bg-slate-50/70 border-b border-slate-200/70 flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-100"></span>
+                        <h2 class="text-sm font-bold text-slate-800">Yeni Metin / Revize Belge</h2>
+                    </div>
+                    <span id="lblWordsNew" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">0 kelime</span>
+                </div>
+
+                <div class="p-5 flex flex-col gap-4 flex-1">
+                    <!-- Drop Zone -->
+                    <div id="dropNew" class="border-2 border-dashed border-slate-200 hover:border-brand-500 rounded-xl p-4 text-center cursor-pointer bg-slate-50/60 hover:bg-brand-50/40 transition-all group">
+                        <input type="file" id="fileNew" accept=".txt,.pdf" class="hidden">
+                        <div class="flex flex-col items-center gap-1.5 pointer-events-none">
+                            <svg class="w-6 h-6 text-slate-400 group-hover:text-brand-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                            </svg>
+                            <p class="text-xs font-medium text-slate-700">PDF veya TXT dosyasını buraya sürükleyin ya da <span class="text-brand-600 font-semibold underline">seçin</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Textarea -->
+                    <textarea id="txtNew" placeholder="Yeni metni buraya yapıştırın veya yukarıdan güncel PDF/TXT dosyası yükleyin..." class="w-full h-64 p-4 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 resize-y font-normal leading-relaxed custom-scrollbar bg-slate-50/30"></textarea>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Action Compare Button -->
+        <div class="flex justify-center -mt-2">
+            <button id="btnAnalyze" class="px-8 py-3.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 shadow-lg shadow-brand-500/25 active:scale-95 transition-all flex items-center gap-2.5">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                <span>Metinleri Karşılaştır</span>
+            </button>
+        </div>
+
+        <!-- Results Section (Initially Hidden) -->
+        <div id="resultsSection" class="hidden flex-col gap-6">
+
+            <!-- Metrics Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                <!-- Metric 1: Değişim Oranı -->
+                <div class="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-white border border-amber-200/80 rounded-2xl p-5 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold tracking-wider text-amber-800 uppercase">DEĞİŞİM ORANI</span>
+                        <span class="p-1.5 rounded-lg bg-amber-500/10 text-amber-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </span>
+                    </div>
+                    <div class="my-3">
+                        <div class="text-3xl font-extrabold text-amber-700 tracking-tight" id="valDiffPercent">%0</div>
+                        <div class="w-full bg-amber-200/50 h-2 rounded-full mt-2.5 overflow-hidden">
+                            <div id="barDiff" class="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-500 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <p class="text-xs text-amber-800/80 font-medium">Metindeki düzenleme ve fark hacmi</p>
+                </div>
+
+                <!-- Metric 2: Benzerlik Oranı -->
+                <div class="bg-gradient-to-br from-indigo-500/10 via-brand-500/5 to-white border border-indigo-200/80 rounded-2xl p-5 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold tracking-wider text-brand-800 uppercase">BENZERLİK ORANI</span>
+                        <span class="p-1.5 rounded-lg bg-brand-500/10 text-brand-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </span>
+                    </div>
+                    <div class="my-3">
+                        <div class="text-3xl font-extrabold text-brand-700 tracking-tight" id="valSimPercent">%100</div>
+                        <div class="w-full bg-brand-200/50 h-2 rounded-full mt-2.5 overflow-hidden">
+                            <div id="barSim" class="h-full bg-gradient-to-r from-brand-600 to-indigo-600 transition-all duration-500 rounded-full" style="width: 100%"></div>
+                        </div>
+                    </div>
+                    <p class="text-xs text-brand-800/80 font-medium">Birebir korunan orijinal içerik</p>
+                </div>
+
+                <!-- Metric 3: Eklenen Kelime -->
+                <div class="bg-white border border-slate-200/90 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold tracking-wider text-emerald-700 uppercase">EKLENEN KELİME</span>
+                        <span class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                        </span>
+                    </div>
+                    <div class="my-3">
+                        <div class="text-3xl font-extrabold text-emerald-600 tracking-tight" id="valAddedWords">+0</div>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium" id="valAddedRatio">Yeni metnin %0'ı</p>
+                </div>
+
+                <!-- Metric 4: Silinen Kelime -->
+                <div class="bg-white border border-slate-200/90 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold tracking-wider text-rose-700 uppercase">SİLİNEN KELİME</span>
+                        <span class="p-1.5 rounded-lg bg-rose-50 text-rose-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
+                        </span>
+                    </div>
+                    <div class="my-3">
+                        <div class="text-3xl font-extrabold text-rose-600 tracking-tight" id="valRemovedWords">-0</div>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium" id="valRemovedRatio">Eski metnin %0'ı</p>
+                </div>
+
+            </div>
+
+            <!-- Diff Visualization View -->
+            <div class="bg-white border border-slate-200/90 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+                <div class="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <h3 class="text-sm font-bold text-slate-800">Detaylı Karşılaştırma Raporu</h3>
+                        <div class="hidden sm:flex items-center gap-2 text-xs font-medium text-slate-500">
+                            <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-emerald-200 inline-block"></span> Eklenen</span>
+                            <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-rose-200 inline-block"></span> Silinen</span>
+                        </div>
+                    </div>
+
+                    <!-- View Switcher Tabs -->
+                    <div class="flex items-center bg-slate-200/70 p-1 rounded-xl">
+                        <button id="tabInline" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-900 bg-white shadow-sm transition-all">
+                            Birleşik Görünüm
+                        </button>
+                        <button id="tabSide" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition-all">
+                            Yan Yana Görünüm
+                        </button>
+                    </div>
+                </div>
+
+                <!-- View Container: Inline -->
+                <div id="diffInline" class="p-6 text-sm leading-relaxed text-slate-800 font-sans custom-scrollbar max-h-[600px] overflow-y-auto whitespace-pre-wrap select-text"></div>
+
+                <!-- View Container: Side by Side -->
+                <div id="diffSide" class="hidden grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-200 max-h-[600px] overflow-y-auto custom-scrollbar">
+                    <div class="p-6 bg-rose-50/20 flex flex-col">
+                        <span class="text-xs font-bold text-rose-800 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-rose-500"></span> Orijinal Hali (Silinenler Vurgulu)
+                        </span>
+                        <div id="diffSideOld" class="text-sm leading-relaxed text-slate-800 font-sans whitespace-pre-wrap flex-1"></div>
+                    </div>
+                    <div class="p-6 bg-emerald-50/20 flex flex-col">
+                        <span class="text-xs font-bold text-emerald-800 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Güncel Hali (Eklenenler Vurgulu)
+                        </span>
+                        <div id="diffSideNew" class="text-sm leading-relaxed text-slate-800 font-sans whitespace-pre-wrap flex-1"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Floating Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900 text-white text-xs sm:text-sm font-medium shadow-2xl shadow-slate-900/40 translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+        <span id="toastIcon" class="text-emerald-400">✓</span>
+        <span id="toastMsg">Bildirim</span>
+    </div>
+
+    <!-- PURE JAVASCRIPT DIFF ENGINE (Dış kütüphanesiz, asla hata vermez) -->
+    <script>
+        const DiffEngine = {
+            tokenize: function(str) {
+                if (!str) return [];
+                return str.match(/\S+|\s+/g) || [];
+            },
+            compute: function(tokensA, tokensB) {
+                const n = tokensA.length;
+                const m = tokensB.length;
+                const dp = Array(n + 1).fill(null).map(() => new Uint32Array(m + 1));
+
+                for (let i = 0; i < n; i++) {
+                    for (let j = 0; j < m; j++) {
+                        if (tokensA[i] === tokensB[j]) {
+                            dp[i + 1][j + 1] = dp[i][j] + 1;
+                        } else {
+                            dp[i + 1][j + 1] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+                        }
+                    }
+                }
+
+                let i = n, j = m;
+                const result = [];
+                while (i > 0 || j > 0) {
+                    if (i > 0 && j > 0 && tokensA[i - 1] === tokensB[j - 1]) {
+                        result.unshift({ type: 'equal', text: tokensA[i - 1] });
+                        i--;
+                        j--;
+                    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+                        result.unshift({ type: 'add', text: tokensB[j - 1] });
+                        j--;
+                    } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+                        result.unshift({ type: 'del', text: tokensA[i - 1] });
+                        i--;
+                    }
+                }
+                return result;
+            }
+        };
+
+        // Element Referansları
+        const txtOld = document.getElementById('txtOld');
+        const txtNew = document.getElementById('txtNew');
+        const lblWordsOld = document.getElementById('lblWordsOld');
+        const lblWordsNew = document.getElementById('lblWordsNew');
+        const btnAnalyze = document.getElementById('btnAnalyze');
+        const btnClear = document.getElementById('btnClear');
+        const btnDemo = document.getElementById('btnDemo');
+        const resultsSection = document.getElementById('resultsSection');
+
+        const valDiffPercent = document.getElementById('valDiffPercent');
+        const valSimPercent = document.getElementById('valSimPercent');
+        const barDiff = document.getElementById('barDiff');
+        const barSim = document.getElementById('barSim');
+        const valAddedWords = document.getElementById('valAddedWords');
+        const valRemovedWords = document.getElementById('valRemovedWords');
+        const valAddedRatio = document.getElementById('valAddedRatio');
+        const valRemovedRatio = document.getElementById('valRemovedRatio');
+
+        const diffInline = document.getElementById('diffInline');
+        const diffSide = document.getElementById('diffSide');
+        const diffSideOld = document.getElementById('diffSideOld');
+        const diffSideNew = document.getElementById('diffSideNew');
+        const tabInline = document.getElementById('tabInline');
+        const tabSide = document.getElementById('tabSide');
+
+        function showToast(msg, isSuccess = true) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+            toastMsg.textContent = msg;
+            toastIcon.textContent = isSuccess ? '✓' : 'ℹ';
+            toastIcon.className = isSuccess ? 'text-emerald-400' : 'text-amber-400';
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-24', 'opacity-0');
+            }, 3200);
+        }
+
+        function countWords(str) {
+            const matches = str.trim().match(/[\wğüşöçıİĞÜŞÖÇ]+/g);
+            return matches ? matches.length : 0;
+        }
+
+        function updateCounts() {
+            lblWordsOld.textContent = `${countWords(txtOld.value)} kelime`;
+            lblWordsNew.textContent = `${countWords(txtNew.value)} kelime`;
+        }
+
+        txtOld.addEventListener('input', updateCounts);
+        txtNew.addEventListener('input', updateCounts);
+
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Karşılaştırma Analizi
+        btnAnalyze.addEventListener('click', () => {
+            const oldVal = txtOld.value.trim();
+            const newVal = txtNew.value.trim();
+
+            if (!oldVal && !newVal) {
+                showToast("Lütfen karşılaştırmak için iki metin girin veya yükleyin.", false);
+                return;
+            }
+
+            const tokensOld = DiffEngine.tokenize(oldVal);
+            const tokensNew = DiffEngine.tokenize(newVal);
+            const diffResults = DiffEngine.compute(tokensOld, tokensNew);
+
+            let addedWordsCount = 0;
+            let removedWordsCount = 0;
+            let equalWordsCount = 0;
+
+            let inlineHtml = '';
+            let sideOldHtml = '';
+            let sideNewHtml = '';
+
+            diffResults.forEach(item => {
+                const isWord = /\S+/.test(item.text);
+                const safe = escapeHtml(item.text);
+
+                if (item.type === 'add') {
+                    if (isWord) addedWordsCount++;
+                    inlineHtml += `<ins class="diff-ins">${safe}</ins>`;
+                    sideNewHtml += `<ins class="diff-ins">${safe}</ins>`;
+                } else if (item.type === 'del') {
+                    if (isWord) removedWordsCount++;
+                    inlineHtml += `<del class="diff-del">${safe}</del>`;
+                    sideOldHtml += `<del class="diff-del">${safe}</del>`;
+                } else {
+                    if (isWord) equalWordsCount++;
+                    inlineHtml += safe;
+                    sideOldHtml += safe;
+                    sideNewHtml += safe;
+                }
+            });
+
+            const oldTotal = countWords(oldVal) || 1;
+            const newTotal = countWords(newVal) || 1;
+            const maxWords = Math.max(oldTotal, newTotal);
+
+            // Gerçekçi değişim ve benzerlik oranı
+            let changeRatio = Math.round(((addedWordsCount + removedWordsCount) / (maxWords * 1.35)) * 100);
+            if (changeRatio > 100) changeRatio = 100;
+            if (addedWordsCount === 0 && removedWordsCount === 0) changeRatio = 0;
+            const similarityRatio = Math.max(0, 100 - changeRatio);
+
+            valDiffPercent.textContent = `%${changeRatio}`;
+            valSimPercent.textContent = `%${similarityRatio}`;
+            barDiff.style.width = `${changeRatio}%`;
+            barSim.style.width = `${similarityRatio}%`;
+
+            valAddedWords.textContent = `+${addedWordsCount}`;
+            valRemovedWords.textContent = `-${removedWordsCount}`;
+            valAddedRatio.textContent = `Yeni metnin %${Math.round((addedWordsCount / newTotal) * 100)}'i`;
+            valRemovedRatio.textContent = `Eski metnin %${Math.round((removedWordsCount / oldTotal) * 100)}'si`;
+
+            diffInline.innerHTML = inlineHtml;
+            diffSideOld.innerHTML = sideOldHtml;
+            diffSideNew.innerHTML = sideNewHtml;
+
+            resultsSection.classList.remove('hidden');
+            resultsSection.classList.add('flex');
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            showToast("Analiz tamamlandı!");
+        });
+
+        // Tab Değişimleri
+        tabInline.addEventListener('click', () => {
+            tabInline.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-900 bg-white shadow-sm transition-all';
+            tabSide.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition-all';
+            diffInline.classList.remove('hidden');
+            diffSide.classList.add('hidden');
+            diffSide.classList.remove('grid');
+        });
+
+        tabSide.addEventListener('click', () => {
+            tabSide.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-900 bg-white shadow-sm transition-all';
+            tabInline.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition-all';
+            diffInline.classList.add('hidden');
+            diffSide.classList.remove('hidden');
+            diffSide.classList.add('grid');
+        });
+
+        // PDF ve TXT Dosya Okuma
+        async function handleFile(file, targetTextarea) {
+            if (!file) return;
+            if (file.name.endsWith('.txt') || file.type === 'text/plain') {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    targetTextarea.value = e.target.result;
+                    updateCounts();
+                    showToast(`${file.name} başarıyla yüklendi.`);
+                };
+                reader.readAsText(file, 'UTF-8');
+            } else if (file.name.endsWith('.pdf') || file.type === 'application/pdf') {
+                if (!window.pdfjsLib) {
+                    showToast("PDF ayrıştırma motoru hazır değil, metni doğrudan yapıştırabilirsiniz.", false);
+                    return;
+                }
+                showToast("PDF okunuyor, lütfen bekleyin...");
+                try {
+                    const buf = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+                    let fullText = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const content = await page.getTextContent();
+                        fullText += content.items.map(item => item.str).join(' ') + '\n\n';
+                    }
+                    targetTextarea.value = fullText.trim();
+                    updateCounts();
+                    showToast(`${file.name} aktarıldı (${pdf.numPages} sayfa).`);
+                } catch (e) {
+                    console.error(e);
+                    showToast("PDF dosyası okunurken bir hata oluştu.", false);
+                }
+            } else {
+                showToast("Lütfen sadece .pdf veya .txt dosyası yükleyin.", false);
+            }
+        }
+
+        function setupDrop(dropEl, inputEl, targetTextarea) {
+            dropEl.addEventListener('click', () => inputEl.click());
+            inputEl.addEventListener('change', (e) => {
+                if (e.target.files.length) handleFile(e.target.files[0], targetTextarea);
+            });
+            dropEl.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropEl.classList.add('border-brand-500', 'bg-brand-50/50');
+            });
+            dropEl.addEventListener('dragleave', () => {
+                dropEl.classList.remove('border-brand-500', 'bg-brand-50/50');
+            });
+            dropEl.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropEl.classList.remove('border-brand-500', 'bg-brand-50/50');
+                if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0], targetTextarea);
+            });
+        }
+
+        setupDrop(document.getElementById('dropOld'), document.getElementById('fileOld'), txtOld);
+        setupDrop(document.getElementById('dropNew'), document.getElementById('fileNew'), txtNew);
+
+        // Temizle
+        btnClear.addEventListener('click', () => {
+            txtOld.value = '';
+            txtNew.value = '';
+            updateCounts();
+            resultsSection.classList.add('hidden');
+            resultsSection.classList.remove('flex');
+            showToast("Tüm metinler temizlendi.");
+        });
+
+        // Demo Yükle
+        btnDemo.addEventListener('click', () => {
+            txtOld.value = `Zenginlerin 4 Sessiz Alışkanlığı: Yaşın Değil, Bunlar Belirler
+
+1855 yılında 16 yaşında bir çocuk, ilk işine başladığı gün cebinden küçük bir defter çıkardı. Kazandığı her kuruşu, harcadığı her kuruşu, verdiği her bağışı o deftere yazdı. Çocuğun adı John D. Rockefeller'dı. 58 yıl sonra, 1913'te, serveti 900 milyon dolardı. Ama bu videonun konusu Rockefeller değil. Sensin. Çünkü 20 yaşındaysan "daha erken" diyorsun, 40 yaşındaysan "geç kaldım" diyorsun, 60 yaşındaysan "tren kaçtı" diyorsun. Peki gerçekten yaş mı belirliyor? Video bitince 4 alışkanlığı rakamlarıyla göreceksin.
+
+Önce şu yaygın inanışa bakalım. Çok kazanan zengin olur. Maaş artarsa her şey düzelir. Hepimiz bir sonraki zammı, bir sonraki işi, bir sonraki fırsatı bekliyoruz. Ama gerçek hayatta tablo başka. Çok kazanıp hep sıfıra yakın yaşayan insanlar var. Daha az kazanıp sessizce öne geçen insanlar da var. Aradaki fark maaşta değil. Alışkanlıkta.
+
+Birinci alışkanlık: kazandığın ile harcadığın arasındaki boşluk.`;
+
+            txtNew.value = `Zenginlerin 4 Sessiz Alışkanlığı: Yaşın Değil, Bunlar Belirler
+
+1855 yılında 16 yaşında bir çocuk, ilk işine başladığı gün cebinden küçük bir defter çıkardı. Kazandığı her kuruşu, harcadığı her kuruşu, verdiği her bağışı o deftere yazdı. Çocuğun adı John D. Rockefeller'dı. 58 yıl sonra serveti bugünün parasıyla yüz milyarlarca dolara ulaştı. Ama bu videonun konusu Rockefeller değil. Sensin. Çünkü 20 yaşındaysan "daha erken" diyorsun, 40 yaşındaysan "geç kaldım", 60 yaşındaysan "tren kaçtı".
+
+Peki serveti inşa eden şey gerçekten yaş mı? Aslında zenginliği belirleyen, kimsenin yüksek sesle konuşmadığı 4 sessiz alışkanlık var. Birazdan bunları tüm rakamlarıyla göreceksin.
+
+Önce şu yaygın inanışa bakalım. Çok kazanan zengin olur. Maaş artarsa her şey düzelir. Hepimiz bir sonraki zammı, bir sonraki işi bekliyoruz. Ama gerçek hayatta durum bambaşka. Geliri ne kadar yüksek olursa olsun, her ayın sonunda ibresi sıfırı gösteren insanlar var. Daha az kazanıp sessizce öne geçen insanlar da var. Aradaki fark maaşta değil. Alışkanlıkta.
+
+Birinci alışkanlık: kazandığın ile harcadığın arasındaki boşluk.`;
+
+            updateCounts();
+            showToast("Örnek metinler aktarıldı. Şimdi karşılaştırabilirsiniz!");
+        });
+    </script>
+</body>
+</html>
