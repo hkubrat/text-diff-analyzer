@@ -1,2 +1,2 @@
-# Metin-De-i-iklik-ve-Benzerlik-Analizi
+# text-diff-analyzer
 Karşılaştırma &amp; Fark Analiz Aracı
