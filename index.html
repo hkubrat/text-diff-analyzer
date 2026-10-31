@@ -240,7 +240,7 @@
   </footer>
 
   <script>
-    // --- KELİME BAZLI LCS (LONGEST COMMON SUBSEQUENCE) DIFF MOTORU ---
+    // --- KELİME BAZLI LCS DIFF MOTORU ---
     function getWordsOnly(text) {
       if (!text) return [];
       return text.trim().split(/\s+/).filter(w => w.length > 0);
@@ -371,7 +371,6 @@
         }
       }
 
-      // Hesaplama: Boşluklar hariç kelime bazlı
       const totalWords = Math.max(wordsA.length, wordsB.length);
       let changePercent = 0;
       let similarityPercent = 100;
