@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="tr" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metin Değişiklik ve Benzerlik Analizi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .font-mono-code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Işık Modu Vurguları */
+    .diff-del {
+      background-color: #fee2e2;
+      color: #991b1b;
+      text-decoration: line-through;
+      padding: 1px 3px;
+      border-radius: 3px;
+      margin: 0 1px;
+      display: inline;
+    }
+    .diff-ins {
+      background-color: #dcfce7;
+      color: #166534;
+      font-weight: 600;
+      padding: 1px 3px;
+      border-radius: 3px;
+      margin: 0 1px;
+      display: inline;
+    }
+    .diff-equal {
+      color: inherit;
+    }
+    /* Koyu Mod Vurguları */
+    .dark .diff-del {
+      background-color: rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+    }
+    .dark .diff-ins {
+      background-color: rgba(34, 197, 94, 0.25);
+      color: #86efac;
+    }
+    .drag-active {
+      border-color: #6366f1 !important;
+      background-color: rgba(99, 102, 241, 0.1) !important;
+    }
+    /* Boşluk Alanları */
+    .empty-slot {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 0.75rem;
+    }
+    .dark .empty-slot {
+      background: #1e293b;
+      border-color: #334155;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200">
+
+  <!-- Header -->
+  <header class="bg-white/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 shadow-sm backdrop-blur-md transition-colors duration-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center text-white shadow-md shadow-indigo-100 dark:shadow-none font-bold text-xl">
+          Δ
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">Metin Değişiklik ve Benzerlik Analizi</h1>
+          <p class="text-xs font-medium text-slate-500 dark:text-slate-400">by kubraht</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <!-- Koyu Mod Butonu -->
+        <button id="btnThemeToggle" title="Temayı Değiştir" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition shadow-sm">
+          <!-- Ay simgesi (Dark) -->
+          <svg id="moonIcon" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <!-- Güneş simgesi (Light) -->
+          <svg id="sunIcon" class="w-4 h-4 hidden text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9h1m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        </button>
+
+        <button id="btnLoadDemo" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition shadow-sm flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          Örnek Metinleri Yükle
+        </button>
+        <button id="btnClear" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 text-slate-600 dark:text-slate-300 transition shadow-sm">
+          Temizle
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Ana İçerik -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
+
+    <!-- Metin Giriş Kartları -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      
+      <!-- Metin A: Orijinal Metin -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col transition hover:shadow-md">
+        <div class="px-5 py-3.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+            <span class="text-sm font-bold text-slate-700 dark:text-slate-200">Orijinal Metin</span>
+          </div>
+          <span id="metaA" class="text-xs text-slate-500 dark:text-slate-400 font-mono-code">0 kelime</span>
+        </div>
+        
+        <div class="p-4 flex-1 flex flex-col space-y-3">
+          <!-- Dosya Bırakma Alanı -->
+          <div id="dropZoneA" class="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-3 text-center transition cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <svg class="w-4 h-4 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            <span>PDF veya TXT dosyasını buraya sürükleyin veya <strong class="text-indigo-600 dark:text-indigo-400 font-semibold">seçin</strong></span>
+            <input type="file" id="fileInputA" class="hidden" accept=".txt,.pdf">
+          </div>
+
+          <textarea id="textA" rows="11" placeholder="Eski metni buraya yapıştırın veya dosya yükleyin..." class="w-full flex-1 p-3.5 text-sm bg-slate-50/30 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition resize-none text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500"></textarea>
+        </div>
+      </div>
+
+      <!-- Metin B: Revize Metin -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col transition hover:shadow-md">
+        <div class="px-5 py-3.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <span class="text-sm font-bold text-slate-700 dark:text-slate-200">Revize Metin</span>
+          </div>
+          <span id="metaB" class="text-xs text-slate-500 dark:text-slate-400 font-mono-code">0 kelime</span>
+        </div>
+        
+        <div class="p-4 flex-1 flex flex-col space-y-3">
+          <!-- Dosya Bırakma Alanı -->
+          <div id="dropZoneB" class="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-3 text-center transition cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <svg class="w-4 h-4 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            <span>PDF veya TXT dosyasını buraya sürükleyin veya <strong class="text-indigo-600 dark:text-indigo-400 font-semibold">seçin</strong></span>
+            <input type="file" id="fileInputB" class="hidden" accept=".txt,.pdf">
+          </div>
+
+          <textarea id="textB" rows="11" placeholder="Yeni metni buraya yapıştırın veya dosya yükleyin..." class="w-full flex-1 p-3.5 text-sm bg-slate-50/30 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition resize-none text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Karşılaştır Butonu -->
+    <div class="flex justify-center">
+      <button id="btnCompare" class="px-8 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-bold text-sm tracking-wide shadow-lg shadow-indigo-200 dark:shadow-none transition-all transform active:scale-95 flex items-center gap-2.5">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+        Metinleri Karşılaştır ve Analiz Et
+      </button>
+    </div>
+
+    <!-- İstatistik ve Metrik Kartları -->
+    <div id="statsSection" class="hidden space-y-6">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        
+        <!-- Değişiklik Oranı -->
+        <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Değişiklik Oranı</p>
+          <div class="mt-2 flex items-baseline gap-1">
+            <span id="statChangeRate" class="text-3xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono-code">%0.0</span>
+          </div>
+          <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 mt-3 overflow-hidden">
+            <div id="barChangeRate" class="bg-indigo-600 dark:bg-indigo-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Benzerlik Oranı -->
+        <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Benzerlik Oranı</p>
+          <div class="mt-2 flex items-baseline gap-1">
+            <span id="statSimilarity" class="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono-code">%0.0</span>
+          </div>
+          <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 mt-3 overflow-hidden">
+            <div id="barSimilarity" class="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Eklenen Kelimeler -->
+        <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Eklenen Kelimeler</p>
+          <div class="mt-2 flex items-baseline gap-1">
+            <span id="statAddedWords" class="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono-code">+0</span>
+            <span class="text-xs font-semibold text-slate-400">kelime</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-2">Yeni metinde olan</p>
+        </div>
+
+        <!-- Silinen Kelimeler -->
+        <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Silinen Kelimeler</p>
+          <div class="mt-2 flex items-baseline gap-1">
+            <span id="statRemovedWords" class="text-3xl font-extrabold text-rose-600 dark:text-rose-400 font-mono-code">-0</span>
+            <span class="text-xs font-semibold text-slate-400">kelime</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-2">Eski metinden çıkan</p>
+        </div>
+
+      </div>
+
+      <!-- Diff Sonuç Alanı -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-bold text-slate-800 dark:text-slate-100">Görünüm Seçenekleri:</span>
+            <!-- 3'LÜ GÖRÜNÜM SEÇİM BUTONLARI -->
+            <div class="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 p-1 bg-white dark:bg-slate-800 shadow-sm text-xs font-semibold gap-1">
+              <button id="viewSentence" class="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 transition flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+                Cümle Cümle (Hizalı)
+              </button>
+              <button id="viewSideBySide" class="px-3 py-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+                Yan Yana (Paragraf)
+              </button>
+              <button id="viewInline" class="px-3 py-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                Birleşik Görünüm
+              </button>
+            </div>
+          </div>
+          
+          <div class="flex items-center gap-4 text-xs font-medium">
+            <div class="flex items-center gap-1.5">
+              <span class="w-3 h-3 rounded bg-rose-200 dark:bg-rose-900/60 border border-rose-300 dark:border-rose-700 inline-block"></span>
+              <span class="text-slate-600 dark:text-slate-400">Çıkarılan</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-3 h-3 rounded bg-emerald-200 dark:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 inline-block"></span>
+              <span class="text-slate-600 dark:text-slate-400">Eklenen</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-3 h-3 rounded bg-slate-50 dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 inline-block"></span>
+              <span class="text-slate-400">Boşluk</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-6">
+          
+          <!-- 1. GÖRÜNÜM: CÜMLE CÜMLE HİZALI GÖRÜNÜM -->
+          <div id="sentenceContainer" class="space-y-3">
+            <div class="grid grid-cols-12 gap-4 pb-2 border-b border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <div class="col-span-1 text-center font-mono-code">#</div>
+              <div class="col-span-5 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span> Orijinal Metin (Cümle)
+              </div>
+              <div class="col-span-1 text-center font-mono-code">#</div>
+              <div class="col-span-5 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Revize Metin (Cümle)
+              </div>
+            </div>
+            <div id="alignedRows" class="space-y-2"></div>
+          </div>
+
+          <!-- 2. GÖRÜNÜM: KLASİK YAN YANA PARAGRAF GÖRÜNÜMÜ -->
+          <div id="sideBySideContainer" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span> Orijinal Hali (Silinenler Vurgulu)
+              </p>
+              <div id="diffLeft" class="p-5 bg-slate-50/50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 leading-relaxed text-sm min-h-[160px] whitespace-normal break-words text-slate-700 dark:text-slate-200"></div>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Güncel Hali (Eklenenler Vurgulu)
+              </p>
+              <div id="diffRight" class="p-5 bg-slate-50/50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 leading-relaxed text-sm min-h-[160px] whitespace-normal break-words text-slate-700 dark:text-slate-200"></div>
+            </div>
+          </div>
+
+          <!-- 3. GÖRÜNÜM: BİRLEŞİK (INLINE) GÖRÜNÜM -->
+          <div id="inlineContainer" class="hidden">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Tüm Farklar Tek Metin Üzerinde</p>
+            <div id="diffInline" class="p-5 bg-slate-50/50 dark:bg-slate-950/40 rounded-xl border border-slate-200 dark:border-slate-800 leading-relaxed text-sm min-h-[160px] whitespace-normal break-words text-slate-700 dark:text-slate-200"></div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-4 text-center text-xs text-slate-400 transition-colors duration-200">
+    Metin Değişiklik ve Benzerlik Analizi • by kubraht
+  </footer>
+
+  <script>
+    // --- TEMA (DARK / LIGHT MODE) YÖNETİMİ ---
+    const btnThemeToggle = document.getElementById('btnThemeToggle');
+    const moonIcon = document.getElementById('moonIcon');
+    const sunIcon = document.getElementById('sunIcon');
+
+    // Tercihi localStorage'dan veya sistemden oku
+    function initTheme() {
+      const savedTheme = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+        document.documentElement.classList.add('dark');
+        moonIcon.classList.add('hidden');
+        sunIcon.classList.remove('hidden');
+      } else {
+        document.documentElement.classList.remove('dark');
+        sunIcon.classList.add('hidden');
+        moonIcon.classList.remove('hidden');
+      }
+    }
+
+    btnThemeToggle.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      if (isDark) {
+        moonIcon.classList.add('hidden');
+        sunIcon.classList.remove('hidden');
+      } else {
+        sunIcon.classList.add('hidden');
+        moonIcon.classList.remove('hidden');
+      }
+    });
+
+    initTheme();
+
+    // --- METİN İŞLEME VE DİFF MOTORU ---
+    function splitIntoSentences(text) {
+      if (!text) return [];
+      const lines = text.split(/\r?\n+/);
+      const units = [];
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        const sentences = [];
+        let cur = '';
+        const tokens = trimmed.split(/\s+/);
+
+        for (let i = 0; i < tokens.length; i++) {
+          const tok = tokens[i];
+          cur += (cur ? ' ' : '') + tok;
+
+          const isInitial = /^[A-Za-zÇĞİÖŞÜçğıöşü]\.$/.test(tok);
+          const hasPunct = /[.!?]+["']?$/.test(tok);
+
+          if (hasPunct && !isInitial && i < tokens.length - 1) {
+            sentences.push(cur.trim());
+            cur = '';
+          }
+        }
+        if (cur.trim()) {
+          sentences.push(cur.trim());
+        }
+
+        for (const s of sentences) {
+          if (s) units.push(s);
+        }
+      }
+      return units;
+    }
+
+    function getWordsOnly(text) {
+      if (!text) return [];
+      return text.trim().split(/\s+/).filter(w => w.length > 0);
+    }
+
+    function diffWords(words1, words2) {
+      const n = words1.length;
+      const m = words2.length;
+      const dp = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));
+
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < m; j++) {
+          if (words1[i] === words2[j]) {
+            dp[i + 1][j + 1] = dp[i][j] + 1;
+          } else {
+            dp[i + 1][j + 1] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+          }
+        }
+      }
+
+      let i = n;
+      let j = m;
+      const result = [];
+      while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && words1[i - 1] === words2[j - 1]) {
+          result.push({ type: 'equal', word: words1[i - 1] });
+          i--;
+          j--;
+        } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+          result.push({ type: 'added', word: words2[j - 1] });
+          j--;
+        } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+          result.push({ type: 'removed', word: words1[i - 1] });
+          i--;
+        }
+      }
+      return result.reverse();
+    }
+
+    function normalizeForComp(str) {
+      return str.toLowerCase().replace(/[^a-z0-9ğüşıöç]/gi, '');
+    }
+
+    function sentenceSimilarity(s1, s2) {
+      const w1 = getWordsOnly(s1);
+      const w2 = getWordsOnly(s2);
+      if (w1.length === 0 && w2.length === 0) return 1;
+      if (w1.length === 0 || w2.length === 0) return 0;
+
+      if (normalizeForComp(s1) === normalizeForComp(s2)) return 1.0;
+
+      const diff = diffWords(w1, w2);
+      const equalCount = diff.filter(d => d.type === 'equal').length;
+      return equalCount / Math.max(w1.length, w2.length);
+    }
+
+    function alignSentences(unitsA, unitsB) {
+      const n = unitsA.length;
+      const m = unitsB.length;
+      const dp = Array.from({ length: n + 1 }, () => new Float32Array(m + 1));
+
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < m; j++) {
+          const sim = sentenceSimilarity(unitsA[i], unitsB[j]);
+          const matchScore = sim >= 0.35 ? (sim * 3) : -1.0;
+          dp[i + 1][j + 1] = Math.max(
+            dp[i][j] + matchScore,
+            dp[i + 1][j],
+            dp[i][j + 1]
+          );
+        }
+      }
+
+      let i = n;
+      let j = m;
+      const aligned = [];
+
+      while (i > 0 || j > 0) {
+        const sim = (i > 0 && j > 0) ? sentenceSimilarity(unitsA[i - 1], unitsB[j - 1]) : 0;
+        if (i > 0 && j > 0 && sim >= 0.35) {
+          aligned.push({ left: unitsA[i - 1], right: unitsB[j - 1], leftIdx: i, rightIdx: j });
+          i--;
+          j--;
+        } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+          aligned.push({ left: null, right: unitsB[j - 1], leftIdx: null, rightIdx: j });
+          j--;
+        } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+          aligned.push({ left: unitsA[i - 1], right: null, leftIdx: i, rightIdx: null });
+          i--;
+        } else {
+          break;
+        }
+      }
+      return aligned.reverse();
+    }
+
+    // --- DOM ELEMENTLERİ ---
+    const textA = document.getElementById('textA');
+    const textB = document.getElementById('textB');
+    const metaA = document.getElementById('metaA');
+    const metaB = document.getElementById('metaB');
+    const btnCompare = document.getElementById('btnCompare');
+    const btnClear = document.getElementById('btnClear');
+    const btnLoadDemo = document.getElementById('btnLoadDemo');
+
+    const statsSection = document.getElementById('statsSection');
+    const statChangeRate = document.getElementById('statChangeRate');
+    const statSimilarity = document.getElementById('statSimilarity');
+    const barChangeRate = document.getElementById('barChangeRate');
+    const barSimilarity = document.getElementById('barSimilarity');
+    const statAddedWords = document.getElementById('statAddedWords');
+    const statRemovedWords = document.getElementById('statRemovedWords');
+
+    const viewSentence = document.getElementById('viewSentence');
+    const viewSideBySide = document.getElementById('viewSideBySide');
+    const viewInline = document.getElementById('viewInline');
+    
+    const sentenceContainer = document.getElementById('sentenceContainer');
+    const sideBySideContainer = document.getElementById('sideBySideContainer');
+    const inlineContainer = document.getElementById('inlineContainer');
+
+    const alignedRows = document.getElementById('alignedRows');
+    const diffLeft = document.getElementById('diffLeft');
+    const diffRight = document.getElementById('diffRight');
+    const diffInline = document.getElementById('diffInline');
+
+    function setActiveTab(activeBtn) {
+      [viewSentence, viewSideBySide, viewInline].forEach(btn => {
+        btn.className = "px-3 py-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition flex items-center gap-1.5";
+      });
+      activeBtn.className = "px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 transition flex items-center gap-1.5";
+    }
+
+    viewSentence.addEventListener('click', () => {
+      setActiveTab(viewSentence);
+      sentenceContainer.classList.remove('hidden');
+      sideBySideContainer.classList.add('hidden');
+      inlineContainer.classList.add('hidden');
+    });
+
+    viewSideBySide.addEventListener('click', () => {
+      setActiveTab(viewSideBySide);
+      sentenceContainer.classList.add('hidden');
+      sideBySideContainer.classList.remove('hidden');
+      inlineContainer.classList.add('hidden');
+    });
+
+    viewInline.addEventListener('click', () => {
+      setActiveTab(viewInline);
+      sentenceContainer.classList.add('hidden');
+      sideBySideContainer.classList.add('hidden');
+      inlineContainer.classList.remove('hidden');
+    });
+
+    function updateWordCounts() {
+      const wA = getWordsOnly(textA.value).length;
+      const wB = getWordsOnly(textB.value).length;
+      metaA.textContent = `${wA} kelime`;
+      metaB.textContent = `${wB} kelime`;
+    }
+
+    textA.addEventListener('input', updateWordCounts);
+    textB.addEventListener('input', updateWordCounts);
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // --- ANALİZ VE KARŞILAŞTIRMA ---
+    function runAnalysis() {
+      const rawA = textA.value;
+      const rawB = textB.value;
+      const wordsA = getWordsOnly(rawA);
+      const wordsB = getWordsOnly(rawB);
+
+      if (wordsA.length === 0 && wordsB.length === 0) {
+        alert("Lütfen karşılaştırmak için en az bir metin girin veya dosya yükleyin.");
+        return;
+      }
+
+      // 1. Kelime Düzeyinde Diff
+      const fullDiff = diffWords(wordsA, wordsB);
+      let addedCount = 0;
+      let removedCount = 0;
+      let equalCount = 0;
+
+      let inlineHtml = '';
+      let leftHtml = '';
+      let rightHtml = '';
+
+      for (const item of fullDiff) {
+        const safeWord = escapeHtml(item.word);
+        if (item.type === 'equal') {
+          equalCount++;
+          inlineHtml += `<span class="diff-equal">${safeWord}</span> `;
+          leftHtml += `<span class="diff-equal">${safeWord}</span> `;
+          rightHtml += `<span class="diff-equal">${safeWord}</span> `;
+        } else if (item.type === 'added') {
+          addedCount++;
+          inlineHtml += `<span class="diff-ins">+${safeWord}</span> `;
+          rightHtml += `<span class="diff-ins">${safeWord}</span> `;
+        } else if (item.type === 'removed') {
+          removedCount++;
+          inlineHtml += `<span class="diff-del">-${safeWord}</span> `;
+          leftHtml += `<span class="diff-del">${safeWord}</span> `;
+        }
+      }
+
+      const totalWords = Math.max(wordsA.length, wordsB.length);
+      let changePercent = 0;
+      let similarityPercent = 100;
+
+      if (totalWords > 0) {
+        const totalModifications = addedCount + removedCount;
+        changePercent = Math.min(100, Math.round((totalModifications / (wordsA.length + addedCount)) * 1000) / 10);
+        similarityPercent = Math.max(0, Math.round((equalCount / totalWords) * 1000) / 10);
+      }
+
+      statChangeRate.textContent = `%${changePercent.toFixed(1)}`;
+      statSimilarity.textContent = `%${similarityPercent.toFixed(1)}`;
+      barChangeRate.style.width = `${changePercent}%`;
+      barSimilarity.style.width = `${similarityPercent}%`;
+      statAddedWords.textContent = `+${addedCount}`;
+      statRemovedWords.textContent = `-${removedCount}`;
+
+      diffInline.innerHTML = inlineHtml;
+      diffLeft.innerHTML = leftHtml;
+      diffRight.innerHTML = rightHtml;
+
+      // 2. Akıllı Cümle Eşleştirme ve Hizalama
+      const unitsA = splitIntoSentences(rawA);
+      const unitsB = splitIntoSentences(rawB);
+      const aligned = alignSentences(unitsA, unitsB);
+
+      let rowsHtml = '';
+      aligned.forEach((pair) => {
+        let leftColHtml = '';
+        let rightColHtml = '';
+
+        if (pair.left !== null && pair.right !== null) {
+          const wLeft = getWordsOnly(pair.left);
+          const wRight = getWordsOnly(pair.right);
+          const cellDiff = diffWords(wLeft, wRight);
+
+          let lTxt = '';
+          let rTxt = '';
+          for (const d of cellDiff) {
+            const w = escapeHtml(d.word);
+            if (d.type === 'equal') {
+              lTxt += `${w} `;
+              rTxt += `${w} `;
+            } else if (d.type === 'removed') {
+              lTxt += `<span class="diff-del">${w}</span> `;
+            } else if (d.type === 'added') {
+              rTxt += `<span class="diff-ins">${w}</span> `;
+            }
+          }
+
+          leftColHtml = `<div class="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-sm leading-relaxed text-slate-700 dark:text-slate-200 h-full shadow-sm">${lTxt}</div>`;
+          rightColHtml = `<div class="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-sm leading-relaxed text-slate-700 dark:text-slate-200 h-full shadow-sm">${rTxt}</div>`;
+        } else if (pair.left !== null && pair.right === null) {
+          const lTxt = escapeHtml(pair.left);
+          leftColHtml = `<div class="p-3.5 bg-rose-50/60 dark:bg-rose-950/30 rounded-xl border border-rose-200 dark:border-rose-900/60 text-sm leading-relaxed text-rose-900 dark:text-rose-200 h-full shadow-sm"><span class="diff-del">${lTxt}</span></div>`;
+          rightColHtml = `<div class="p-3.5 empty-slot h-full min-h-[48px]"></div>`;
+        } else if (pair.left === null && pair.right !== null) {
+          leftColHtml = `<div class="p-3.5 empty-slot h-full min-h-[48px]"></div>`;
+          const rTxt = escapeHtml(pair.right);
+          rightColHtml = `<div class="p-3.5 bg-emerald-50/60 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-900/60 text-sm leading-relaxed text-emerald-950 dark:text-emerald-200 font-medium h-full shadow-sm"><span class="diff-ins">${rTxt}</span></div>`;
+        }
+
+        const lNum = pair.leftIdx !== null ? pair.leftIdx : '';
+        const rNum = pair.rightIdx !== null ? pair.rightIdx : '';
+
+        rowsHtml += `
+          <div class="grid grid-cols-12 gap-3 items-stretch py-1">
+            <div class="col-span-1 flex items-center justify-center text-xs font-mono-code text-slate-400 dark:text-slate-500 select-none bg-slate-100/70 dark:bg-slate-800/60 rounded-lg">${lNum}</div>
+            <div class="col-span-5">${leftColHtml}</div>
+            <div class="col-span-1 flex items-center justify-center text-xs font-mono-code text-slate-400 dark:text-slate-500 select-none bg-slate-100/70 dark:bg-slate-800/60 rounded-lg">${rNum}</div>
+            <div class="col-span-5">${rightColHtml}</div>
+          </div>
+        `;
+      });
+
+      alignedRows.innerHTML = rowsHtml;
+      statsSection.classList.remove('hidden');
+      statsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    btnCompare.addEventListener('click', runAnalysis);
+
+    // --- TEMİZLEME & DEMO ---
+    btnClear.addEventListener('click', () => {
+      textA.value = '';
+      textB.value = '';
+      updateWordCounts();
+      statsSection.classList.add('hidden');
+      diffInline.innerHTML = '';
+      diffLeft.innerHTML = '';
+      diffRight.innerHTML = '';
+      alignedRows.innerHTML = '';
+    });
+
+    btnLoadDemo.addEventListener('click', () => {
+      textA.value = `Zenginlerin 4 Sessiz Alışkanlığı: Yaşın Değil, Bunlar Belirler
+
+1855 yılında 16 yaşında bir çocuk, ilk işine başladığı gün cebinden küçük bir defter çıkardı. Kazandığı her kuruşu, harcadığı her kuruşu, verdiği her bağışı o deftere yazdı. Çocuğun adı John D. Rockefeller'dı. 58 yıl sonra, 1913'te, serveti 900 milyon dolardı. Ama bu videonun konusu Rockefeller değil. Sensin.
+
+İkinci alışkanlık: paranın oturmaması, çalışması.
+Hayatımız boyunca para için çalışıyoruz. Ama çoğumuz paranın kendisini hiç çalıştırmıyor. Kenarda duran para, önceki videoda konuştuğumuz gibi, buz kalıbı gibi erir.`;
+
+      textB.value = `Zenginlerin 4 Sessiz Alışkanlığı: Yaşın Değil, Bunlar Belirler
+
+1855 yılında 16 yaşında bir çocuk, ilk işine başladığı gün cebinden küçük bir defter çıkardı. Kazandığı her kuruşu, harcadığı her kuruşu, verdiği her bağışı o deftere yazdı. Çocuğun adı John D. Rockefeller'dı. 58 yıl sonra serveti bugünün parasıyla yüz milyarlarca dolara ulaştı. Ama bu videonun konusu Rockefeller değil. Sensin.
+
+İkinci alışkanlık: Paranın mesaisi.
+Hayatımız boyunca para için çalışıyoruz. Ama çoğumuz paranın kendisini hiç çalıştırmıyor. Kenarda duran para, önceki videoda konuştuğumuz gibi güneşin altındaki buz kalıbı gibi eriyor. O erimeyi nasıl durduracağını henüz izlemediysen o videoya da mutlaka bak; yukarıya ekliyorum.`;
+
+      updateWordCounts();
+      runAnalysis();
+    });
+
+    // --- DOSYA YÜKLEME (PDF & TXT) İŞLEMLERİ ---
+    setupFileHandlers('dropZoneA', 'fileInputA', textA);
+    setupFileHandlers('dropZoneB', 'fileInputB', textB);
+
+    function setupFileHandlers(dropZoneId, fileInputId, targetTextarea) {
+      const dropZone = document.getElementById(dropZoneId);
+      const fileInput = document.getElementById(fileInputId);
+
+      dropZone.addEventListener('click', () => fileInput.click());
+
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-active');
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-active');
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-active');
+        if (e.dataTransfer.files.length > 0) {
+          processFile(e.dataTransfer.files[0], targetTextarea);
+        }
+      });
+
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          processFile(e.target.files[0], targetTextarea);
+        }
+      });
+    }
+
+    async function processFile(file, targetTextarea) {
+      if (file.name.endsWith('.txt')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          targetTextarea.value = e.target.result;
+          updateWordCounts();
+        };
+        reader.readAsText(file);
+      } else if (file.name.endsWith('.pdf')) {
+        if (!window.pdfjsLib) {
+          alert("PDF okuyucu henüz yüklenemedi. Lütfen birkaç saniye sonra tekrar deneyin veya metni kopyalayıp yapıştırın.");
+          return;
+        }
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          let fullText = '';
+          for (let p = 1; p <= pdf.numPages; p++) {
+            const page = await pdf.getPage(p);
+            const content = await page.getTextContent();
+            const pageStr = content.items.map(item => item.str).join(' ');
+            fullText += pageStr + '\n\n';
+          }
+          targetTextarea.value = fullText.trim();
+          updateWordCounts();
+        } catch (err) {
+          console.error(err);
+          alert("PDF dosyası okunurken bir hata oluştu. Şifreli veya taranmış resim (OCR gerektiren) PDF olabilir.");
+        }
+      } else {
+        alert("Lütfen yalnızca .txt veya .pdf formatında bir dosya seçin.");
+      }
+    }
+  </script>
+</body>
+</html>
